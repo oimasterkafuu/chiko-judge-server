@@ -1,0 +1,3 @@
+[submodule "chiko-judge-module"]
+	path = chiko-judge-module
+	url = https://github.com/oimasterkafuu/chiko-judge-module.git
