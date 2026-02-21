@@ -5,6 +5,7 @@
 
 import fs from 'fs';
 import path from 'path';
+import { randomUUID } from 'crypto';
 import { ChikoJudgeSandbox } from 'chiko-judge-sandbox';
 import { cacheManager, CacheType } from './cache.js';
 
@@ -103,6 +104,15 @@ function isTestlibChecker(checkerName) {
 }
 
 /**
+ * 创建并返回唯一的临时目录
+ */
+function createUniqueTempDir(prefix) {
+  const tempDir = path.join('/tmp', `${prefix}-${Date.now()}-${randomUUID()}`);
+  fs.mkdirSync(tempDir, { recursive: true });
+  return tempDir;
+}
+
+/**
  * 编译任务处理器
  */
 export async function handleCompile(data) {
@@ -173,8 +183,7 @@ export async function handleJudge(data) {
   if (!outputCache) throw new Error('Output cache not found or expired');
   
   // 创建临时目录
-  const tempDir = `/tmp/judge-${Date.now()}`;
-  fs.mkdirSync(tempDir, { recursive: true });
+  const tempDir = createUniqueTempDir('judge');
   
   try {
     // 写入可执行文件
@@ -286,8 +295,7 @@ export async function handleRun(data) {
   if (!inputCache) throw new Error('Input cache not found or expired');
   
   // 创建临时目录
-  const tempDir = `/tmp/run-${Date.now()}`;
-  fs.mkdirSync(tempDir, { recursive: true });
+  const tempDir = createUniqueTempDir('run');
   
   try {
     // 写入可执行文件
@@ -364,8 +372,7 @@ export async function handleInteractive(data) {
   if (!interactorBinaryCache) throw new Error('Interactor binary cache not found or expired');
   
   // 创建临时目录
-  const tempDir = `/tmp/interactive-${Date.now()}`;
-  fs.mkdirSync(tempDir, { recursive: true });
+  const tempDir = createUniqueTempDir('interactive');
   
   try {
     // 写入可执行文件

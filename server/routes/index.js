@@ -44,6 +44,18 @@ async function authMiddleware(request, reply) {
  * 注册路由
  */
 export async function registerRoutes(fastify) {
+  // 设置队列并发：从环境变量读取，默认 1
+  const rawJudgeThreads = process.env.JUDGE_THREADS;
+  const parsedJudgeThreads = Number.parseInt(rawJudgeThreads || '1', 10);
+  const judgeThreads = Number.isNaN(parsedJudgeThreads) || parsedJudgeThreads < 1
+    ? 1
+    : parsedJudgeThreads;
+
+  if (rawJudgeThreads && (Number.isNaN(parsedJudgeThreads) || parsedJudgeThreads < 1)) {
+    fastify.log.warn(`Invalid JUDGE_THREADS="${rawJudgeThreads}", fallback to 1`);
+  }
+  taskQueue.setConcurrency(judgeThreads);
+
   // 注册 multipart 插件
   await fastify.register(import('@fastify/multipart'), {
     limits: {

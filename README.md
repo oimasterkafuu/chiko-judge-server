@@ -25,6 +25,7 @@ pnpm install
 export JUDGE_TOKEN=your-token
 export JUDGE_PORT=3235
 export JUDGE_HOST=0.0.0.0
+export JUDGE_THREADS=1
 export LOG_LEVEL=info
 
 pnpm start
@@ -36,6 +37,7 @@ pnpm start
 JUDGE_TOKEN=your-token
 JUDGE_PORT=3235
 JUDGE_HOST=0.0.0.0
+JUDGE_THREADS=1
 LOG_LEVEL=info
 ```
 
@@ -51,6 +53,7 @@ LOG_LEVEL=info
 | `JUDGE_TOKEN` | API 访问令牌 | 是   | -       |
 | `JUDGE_PORT`  | 服务端口     | 否   | 3235    |
 | `JUDGE_HOST`  | 监听地址     | 否   | 0.0.0.0 |
+| `JUDGE_THREADS` | 评测并发 worker 数（任务并发执行） | 否 | 1 |
 | `LOG_LEVEL`   | 日志级别     | 否   | info    |
 
 ## 鉴权方式
@@ -515,6 +518,9 @@ GET /status
     "queueSize": 5,
     "isProcessing": true,
     "currentTask": "task-uuid",
+    "runningTasks": ["task-uuid-a", "task-uuid-b"],
+    "activeWorkers": 2,
+    "concurrency": 4,
     "totalTasks": 100
   },
   "cache": {

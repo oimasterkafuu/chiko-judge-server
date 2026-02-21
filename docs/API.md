@@ -18,6 +18,7 @@
 | `JUDGE_TOKEN` | API 访问令牌 | 是 |
 | `JUDGE_PORT` | 服务端口，默认 3235 | 否 |
 | `JUDGE_HOST` | 监听地址，默认 0.0.0.0 | 否 |
+| `JUDGE_THREADS` | 评测并发 worker 数，默认 1 | 否 |
 | `LOG_LEVEL` | 日志级别，默认 info | 否 |
 
 ### 鉴权方式
@@ -460,6 +461,9 @@ GET /status
     "queueSize": 5,
     "isProcessing": true,
     "currentTask": "task-uuid",
+    "runningTasks": ["task-uuid-a", "task-uuid-b"],
+    "activeWorkers": 2,
+    "concurrency": 4,
     "totalTasks": 100
   },
   "cache": {

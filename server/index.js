@@ -12,7 +12,6 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 config({ path: resolve(__dirname, '../.env') });
 
 import Fastify from 'fastify';
-import { registerRoutes } from './routes/index.js';
 
 const PORT = process.env.JUDGE_PORT || 3235;
 const HOST = process.env.JUDGE_HOST || '0.0.0.0';
@@ -41,6 +40,9 @@ fastify.setErrorHandler((error, request, reply) => {
 // 启动服务器
 async function start() {
   try {
+    // 在 dotenv 生效后再加载路由，确保依赖模块读取到正确环境变量
+    const { registerRoutes } = await import('./routes/index.js');
+
     // 注册路由
     await registerRoutes(fastify);
     

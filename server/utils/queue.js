@@ -148,12 +148,40 @@ class PriorityQueue {
  * 任务队列管理器
  */
 class TaskQueue {
-  constructor() {
+  constructor(concurrency = 1) {
     this.queue = new PriorityQueue();
     this.tasks = new Map();  // id -> Task
-    this.running = null;     // 当前运行的任务
-    this.isProcessing = false;
+    this.runningTasks = new Map(); // id -> Task
+    this.activeWorkers = 0;
+    this.concurrency = this.normalizeConcurrency(concurrency);
     this.handlers = new Map(); // 任务类型 -> 处理函数
+  }
+
+  normalizeConcurrency(value) {
+    const parsed = Number.parseInt(value, 10);
+    if (Number.isNaN(parsed) || parsed < 1) {
+      return 1;
+    }
+    return parsed;
+  }
+
+  /**
+   * 设置并发 worker 数
+   */
+  setConcurrency(value) {
+    const nextConcurrency = this.normalizeConcurrency(value);
+
+    if (nextConcurrency === this.concurrency) {
+      return this.concurrency;
+    }
+
+    this.concurrency = nextConcurrency;
+    console.log(`[Queue] Concurrency set to ${this.concurrency}`);
+
+    // 并发提升后，立即尝试拉起更多任务
+    this.process();
+
+    return this.concurrency;
   }
 
   /**
@@ -189,60 +217,72 @@ class TaskQueue {
   /**
    * 处理队列
    */
-  async process() {
-    if (this.isProcessing) return;
-    if (this.queue.isEmpty()) return;
-    
-    this.isProcessing = true;
-    
-    while (!this.queue.isEmpty()) {
+  process() {
+    while (this.activeWorkers < this.concurrency && !this.queue.isEmpty()) {
       const task = this.queue.pop();
-      
+
       if (!task) break;
-      
-      this.running = task;
+
+      this.activeWorkers += 1;
+      this.runningTasks.set(task.id, task);
       task.status = TaskStatus.RUNNING;
       task.startedAt = Date.now();
-      
-      console.log(`[Queue] Processing task ${task.id} (type=${task.type})`);
-      
-      try {
-        const handler = this.handlers.get(task.type);
-        
-        if (!handler) {
-          throw new Error(`No handler registered for task type: ${task.type}`);
-        }
-        
-        const result = await handler(task.data);
-        
-        task.status = TaskStatus.COMPLETED;
-        task.result = result;
-        task.completedAt = Date.now();
-        
-        console.log(`[Queue] Task ${task.id} completed in ${task.completedAt - task.startedAt}ms`);
-        
-      } catch (error) {
-        task.status = TaskStatus.FAILED;
-        task.error = error.message;
-        task.completedAt = Date.now();
-        
-        console.error(`[Queue] Task ${task.id} failed:`, error.message);
-      }
-      
-      this.running = null;
+
+      console.log(`[Queue] Processing task ${task.id} (type=${task.type}, workers=${this.activeWorkers}/${this.concurrency})`);
+
+      this.executeTask(task)
+        .catch((error) => {
+          // 兜底保护，避免 Promise rejection 中断队列循环
+          console.error(`[Queue] Unexpected error while processing task ${task.id}:`, error);
+        })
+        .finally(() => {
+          this.activeWorkers = Math.max(0, this.activeWorkers - 1);
+          this.runningTasks.delete(task.id);
+          this.process();
+        });
     }
-    
-    this.isProcessing = false;
+  }
+
+  async executeTask(task) {
+    try {
+      const handler = this.handlers.get(task.type);
+
+      if (!handler) {
+        throw new Error(`No handler registered for task type: ${task.type}`);
+      }
+
+      const result = await handler(task.data);
+
+      task.status = TaskStatus.COMPLETED;
+      task.result = result;
+      task.completedAt = Date.now();
+
+      console.log(`[Queue] Task ${task.id} completed in ${task.completedAt - task.startedAt}ms`);
+
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+
+      task.status = TaskStatus.FAILED;
+      task.error = errorMessage;
+      task.completedAt = Date.now();
+
+      console.error(`[Queue] Task ${task.id} failed:`, errorMessage);
+    }
   }
 
   /**
    * 获取队列状态
    */
   getStatus() {
+    const runningTaskIds = Array.from(this.runningTasks.keys());
+
     return {
       queueSize: this.queue.size(),
-      isProcessing: this.isProcessing,
-      currentTask: this.running ? this.running.id : null,
+      isProcessing: this.activeWorkers > 0,
+      currentTask: runningTaskIds[0] || null, // 兼容旧字段
+      runningTasks: runningTaskIds,
+      activeWorkers: this.activeWorkers,
+      concurrency: this.concurrency,
       totalTasks: this.tasks.size,
     };
   }
